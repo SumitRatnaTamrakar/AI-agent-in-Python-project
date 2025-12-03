@@ -12,6 +12,7 @@ def main():
 
     parser = argparse.ArgumentParser(description="Chatbot")
     parser.add_argument("user_prompt", type=str, help="User prompt")
+    parser.add_argument("--verbose", action="store_true", help="Enable verbose output")
     args = parser.parse_args()
 
     # Create a new list of types.Content, and set the user's prompt as the only message (for now):
@@ -34,8 +35,10 @@ def main():
     # print(f"Prompt tokens: {response.usage_metadata.prompt_token_count}")
     # print(f"Response tokens: {response.usage_metadata.candidates_token_count}")
 
-    print("Prompt tokens:", response.usage_metadata.prompt_token_count)
-    print("Response tokens:" ,response.usage_metadata.candidates_token_count)
+    if args.verbose:
+        print("User prompt:", args.user_prompt)
+        print("Prompt tokens:", response.usage_metadata.prompt_token_count)
+        print("Response tokens:" ,response.usage_metadata.candidates_token_count)
 
 if __name__ == "__main__":
     main()
