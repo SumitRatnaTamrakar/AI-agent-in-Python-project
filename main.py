@@ -5,7 +5,13 @@ import argparse
 from google.genai import types
 from prompts import system_prompt
 
-from functions.get_files_info import schema_get_files_info, available_functions
+# Unecessary code:
+# from functions.get_files_info import schema_get_files_info
+# from functions.get_file_content import schema_get_files_content
+# from functions.run_python_file import schema_run_python_file
+# from functions.write_file_content import schema_write_file
+
+from call_function import available_functions, call_function
 
 def main():
     # print("Hello from ai-agent-in-python-project!")
@@ -72,11 +78,37 @@ def generate_content(client, messages, verbose):
     # ... (rest of the function)
 
     # print(response.text)
-    if response.function_calls is not None:
-        for response_function_call in response.function_calls:
-            print(f"Calling function: {response_function_call.name}({response_function_call.args})")
-    else:
+    if not response.function_calls:
+        print("Response:")
         print(response.text)
+        return
+        
+        # for response_function_call in response.function_calls:
+            # print(f"Calling function: {response_function_call.name}({response_function_call.args})")
+            
+        # ----------------------------------
+
+    function_responses = []
+
+    for function_call_part in response.function_calls:
+        function_call_result = call_function(function_call_part, verbose)
+
+        if (
+            not function_call_result.parts
+            or not function_call_result.parts[0].function_response
+        ):
+            raise Exception("empty function call result")
+
+        if verbose:
+            print(f"-> {function_call_result.parts[0].function_response.response}")
+
+        function_responses.append(function_call_result.parts[0])
+
+    if not function_responses:
+        raise Exception("no function responses generated, exiting.")
+        
+    # ---------------------
+
         
     if response.usage_metadata is None:
         raise RuntimeError("No usage metadata received")
