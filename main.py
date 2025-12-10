@@ -67,58 +67,139 @@ def main():
 
 def generate_content(client, messages, verbose):
     
-    response = client.models.generate_content(
-        model="gemini-2.5-flash",
-        contents=messages,
-        # config=types.GenerateContentConfig(system_instruction=system_prompt),
-        config=types.GenerateContentConfig(
-            tools=[available_functions], system_instruction=system_prompt
+    for _ in range(20):  # up to 20 iterations
+        try:
+            response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=messages,
+            # config=types.GenerateContentConfig(system_instruction=system_prompt),
+            config=types.GenerateContentConfig(
+                tools=[available_functions], system_instruction=system_prompt
+            )
         )
-    )
+
+        # 1) Add candidates to messages
+            if response.candidates:
+                for candidate in response.candidates:
+                    messages.append(candidate.content)
+
+            # 2) If there are NO function calls, maybe we’re done
+            if not response.function_calls:
+                if response.text:
+                    print("Final response:")
+                    print(response.text)
+                    break
+                # no tools and no text, just let the loop continue
+                continue
+
+            # 3) There AR  E function calls: run them and collect results
+            function_responses = []
+
+            for function_call_part in response.function_calls:
+                # this is the same helper from the previous lesson
+                function_call_result = call_function(function_call_part, verbose)
+
+                if (
+                    not function_call_result.parts
+                    or not function_call_result.parts[0].function_response
+                ):
+                    raise Exception("empty function call result")
+
+                if verbose:
+                    print(f"-> {function_call_result.parts[0].function_response.response}")
+
+                # collect the Part so we can send it back to the model
+                function_responses.append(function_call_result.parts[0])
+
+            if not function_responses:
+                raise Exception("no function responses generated, exiting.")
+
+            # 4) Convert list of tool results into a single user Content and append
+            messages.append(types.Content(role="user", parts=function_responses))
+
+            # loop continues, model will see tool outputs next iteration
+
+        except Exception as e:
+            print("Error:", e)
+            break
+
+# ----------
+
+        #     any_tool_calls = False
+        #     # 1.3 After you have the responses from each function call, use the types.Content constructor to convert the list of responses into a message with a role of user, and append it to your messages.
+        #     tool_results = []   # each result is something like a text or JSON string
+
+
+        #     # 1.2 After calling client's generate_content method, check the .candidates property of the response. It's a list of response variations (usually just one). It contains the equivalent of "I want to call get_files_info," so we need to add it to our conversation. Iterate over each candidate and add its .content to your messages list.
+        #     for candidate in response.candidates:
+        #         messages.append(candidate.content)
+        #         if candidate.content.parts 
+        #             any_tool_calls = True
+
+        #             tool_results.append(tool_output)
+
+
+        #     tool_results_message = types.Content(
+        #         role="user",
+        #         parts=[
+        #             types.Part.from_text(result)
+        #             for result in tool_results
+        #         ],
+        #     )
+
+        #     messages.append(tool_results_message)
+        #     pass
+        # except Exception as e:
+        #     print("Error:", e)
+        #     break
+
+
+    
+
     # ... (rest of the function)
 
     # print(response.text)
-    if not response.function_calls:
-        print("Response:")
-        print(response.text)
-        return
+    # if not response.function_calls:
+    #     print("Response:")
+    #     print(response.text)
+    #     return
         
-        # for response_function_call in response.function_calls:
-            # print(f"Calling function: {response_function_call.name}({response_function_call.args})")
+    #     # for response_function_call in response.function_calls:
+    #         # print(f"Calling function: {response_function_call.name}({response_function_call.args})")
             
-        # ----------------------------------
+    #     # ----------------------------------
 
-    function_responses = []
+    # function_responses = []
 
-    for function_call_part in response.function_calls:
-        function_call_result = call_function(function_call_part, verbose)
+    # for function_call_part in response.function_calls:
+    #     function_call_result = call_function(function_call_part, verbose)
 
-        if (
-            not function_call_result.parts
-            or not function_call_result.parts[0].function_response
-        ):
-            raise Exception("empty function call result")
+    #     if (
+    #         not function_call_result.parts
+    #         or not function_call_result.parts[0].function_response
+    #     ):
+    #         raise Exception("empty function call result")
 
-        if verbose:
-            print(f"-> {function_call_result.parts[0].function_response.response}")
+    #     if verbose:
+    #         print(f"-> {function_call_result.parts[0].function_response.response}")
 
-        function_responses.append(function_call_result.parts[0])
+    #     function_responses.append(function_call_result.parts[0])
 
-    if not function_responses:
-        raise Exception("no function responses generated, exiting.")
+    # if not function_responses:
+    #     raise Exception("no function responses generated, exiting.")
         
-    # ---------------------
+    # # ---------------------
 
         
-    if response.usage_metadata is None:
-        raise RuntimeError("No usage metadata received")
+    # if response.usage_metadata is None:
+    #     raise RuntimeError("No usage metadata received")
 
-    # print(f"Prompt tokens: {response.usage_metadata.prompt_token_count}")
-    # print(f"Response tokens: {response.usage_metadata.candidates_token_count}")
+    # # print(f"Prompt tokens: {response.usage_metadata.prompt_token_count}")
+    # # print(f"Response tokens: {response.usage_metadata.candidates_token_count}")
 
-    if verbose:
-        print("User prompt:", messages[0].parts[0].text)
-        print("Response tokens:" ,response.usage_metadata.candidates_token_count)
+    # if verbose:
+    #     print("User prompt:", messages[0].parts[0].text)
+    #     print("Response tokens:" ,response.usage_metadata.candidates_token_count)
 
 if __name__ == "__main__":
     main()
